@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import './App.css'
 import axios from 'axios'
+import PokeCard from './components/PokeCard';
 
 function App() {
 
   const [pokemons, setPokemons] = useState([])  
 
-  const url = 'https://pokeapi.co/api/v2/pokemon/?limit=1008&offset=0';
+  const url = 'https://pokeapi.co/api/v2/pokemon/?limit=10&offset=0';
   useEffect(() => {
     fetchPokeData()
   }, [])
@@ -14,7 +15,6 @@ function App() {
   const fetchPokeData = async () => {
     try {
       const response = await axios.get(url)
-      console.log(response.data.results)
       setPokemons(response.data.results)
     } catch (error) {
       console.error(error)
@@ -31,9 +31,7 @@ function App() {
           {pokemons.length > 0 ? 
           (
             pokemons.map(({url,name}, index) => (
-              <div className="">
-                {name}
-              </div>
+              <PokeCard key= {url} url={url} name={name}/>
             ))
           ) :
           (
