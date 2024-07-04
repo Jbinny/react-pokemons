@@ -9,29 +9,33 @@ import { Balance } from '../../assets/Balance'
 import { Vector } from '../../assets/Vector'
 import Type from '../../components/Type'
 import BaseStat from '../../components/BaseStat'
-import DamageRelations from '../../components/DamageRelations'
+// import DamageRelations from '../../components/DamageRelations'
+import DamageModal from '../../components/DamageModal'
 
 const DetailPage = () => {
 
   const [pokemon, setPokemon] = useState()
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const params = useParams()
   const pokemonId = params.id
   const baseUrl = `https://pokeapi.co/api/v2/pokemon/`
 
   useEffect(() => {
-    fetchPokemonData()
-  }, [])
+    setIsLoading(true)
+    fetchPokemonData(params.id)
+  }, [params.id])
   
 
-  async function fetchPokemonData() {
-    const url = `${baseUrl}${pokemonId}`
+  async function fetchPokemonData(id) {
+    const url = `${baseUrl}${id}`
     try {
       const { data: pokemonData } = await axios.get(url)
 
       if(pokemonData) {
-        const {name, id, types, weight, height, stats, abilities} = pokemonData
+        const {name, id, types, weight, height, stats, abilities, sprites} = pokemonData
+
         const nextAndPreviousPokemon = await getNextAndPreviousPokemon(id)
 
         const damageRelations = await Promise.all(
@@ -51,9 +55,10 @@ const DetailPage = () => {
           abilities: formatPokemonAbilities(abilities),
           stats: formatPokemonStats(stats),
           damageRelations: damageRelations,
-          types: types.map(type => type.type.name)
+          types: types.map(type => type.type.name),
+          sprites: formatPokemonSprites(sprites),
+          description: await getPokemonDescription(id)
         }
-        
         setPokemon(formattedPokemonData)
         setIsLoading(false)
         
@@ -65,9 +70,37 @@ const DetailPage = () => {
     }
   }
 
+  const filterAndFormatDescription = (flavorText) => {
+    const koreanDescriptions = flavorText
+      ?.filter((text) => text.language.name === "ko")
+      .map((text) => text.flavor_text.replace(/\r|\n|\f/g, ' '))
+
+    return koreanDescriptions
+  }
+
+  const getPokemonDescription = async(id) => {
+    const url = `https://pokeapi.co/api/v2/pokemon-species/${id}`
+    const { data:pokemonSpecies } =await axios.get(url)
+    const descriptions = filterAndFormatDescription(pokemonSpecies.flavor_text_entries)
+    
+    return descriptions[Math.floor(Math.random() * descriptions.length)]
+  }
+
   const formatPokemonAbilities = (abilities) => {
     return abilities.filter((_, index) => index <= 1)
                     .map((obj) => obj.ability.name.replaceAll('-',' '))
+  }
+
+  const formatPokemonSprites = (Sprites) => {
+    const newSprites = {...Sprites}
+
+    Object.keys(newSprites).forEach(key => {
+      if(typeof newSprites[key] !== 'string') {
+        delete newSprites[key]
+      }
+    })
+
+    return Object.values(newSprites)
   }
 
   const formatPokemonStats = ([
@@ -87,7 +120,7 @@ const DetailPage = () => {
   ]
   
   async function getNextAndPreviousPokemon(id) {
-    const urlPokemon = `${baseUrl}?limit=1&offset=${id-1}`
+    const urlPokemon = `${baseUrl}?limit=1&offset=${id}`
 
     const {data: pokemonData} = await axios.get(urlPokemon)
     
@@ -152,13 +185,15 @@ const DetailPage = () => {
             </div>
           </div>
 
-          <div className="relative h-auto max-w-[15.5rem] z-20 mt-6 -mb-16">
+          <div className="relative h-auto max-w-[15.5rem] z-20 mt-6 -mb-16 cursor-pointer">
             <img src={img} 
                  width="100%" 
                  height="auto" 
                  loading='lazy' 
                  alt={pokemon.name} 
-                 className={`object-contain h-full`} />
+                 className={`object-contain h-full`} 
+                 onClick={() => {setIsModalOpen(true)}}
+                />
           </div>
         </section>
 
@@ -219,19 +254,31 @@ const DetailPage = () => {
             </table>
           </div>
 
-          {pokemon.damageRelations && (
-            <div className="w-10/12">
-              <h2 className={`text-base text-center font-semibold ${text}`}>
-                <DamageRelations 
-                  damages = {pokemon.damageRelations}
-                />
-              </h2>
-            </div>
-          )}
+          <h2 className= {`text-base font-semibold ${text} `} >
+            설명
+          </h2>
+          <p className='text-md leading-4 font-sans text-zinc-200'>
+            {pokemon.description}
+          </p>
+
+          <div className="flex my-8 flex-wrap justify-center max-w-[30rem] text-center">
+            {pokemon.sprites.map((url, index) => (
+              <img 
+                key={index}
+                src={url} 
+                alt="sprite" 
+              />
+            ))}
+          </div>
 
         </section>
-
       </div>
+      {isModalOpen && 
+        <DamageModal
+          setIsModalOpen={setIsModalOpen}
+          damages = {pokemon.damageRelations}
+        />
+      }
     </article>
   )
 }
